@@ -19,6 +19,9 @@ def kl_divergence(p, q):
 def hoeffding_bound(p_hat, delta, n):
     return p_hat + np.sqrt(np.log(1 / delta) / (2 * n))
 
+def hoeffding_l_bound(p_hat, delta, n):
+    return p_hat - np.sqrt(np.log(1 / delta) / (2 * n))
+
 def binary_search(p_hat, z):
     upper =1
     lower = p_hat
@@ -51,6 +54,39 @@ def kl_inverse_bound(p_hat, delta, n):
     return max_p_values
 
 
+def min_binary_search(p_hat, z):
+    upper =p_hat
+    lower = 0
+    current_p = round((lower + upper)/2, 3)
+    print ("z",z)
+    
+    while True:
+        bound = kl_divergence(p_hat,current_p)
+        print ("bound",bound)
+        print("u/l", upper, lower)
+        if bound <= z:
+            upper = current_p - 0.001
+        else:
+            lower = current_p
+
+        new_p = round((lower + upper)/2, 3)
+        if current_p == new_p:
+            break
+        current_p = new_p # update current_p
+
+    return current_p 
+
+def kl_l_inverse_bound(p_hat, delta, n): # lower bound
+    z = np.log((n + 1) / delta) / n
+
+    max_p_values = np.zeros_like(p_hat)  # Initialize an array to store max_p values
+    for i, p in enumerate(p_hat):
+        max_p_values[i] = min_binary_search(p, z)  # Perform binary search for each p_hat element
+    
+    return max_p_values
+
+
+
 
 def pinsker_bound(p_hat, delta, n):
     return p_hat + np.sqrt(np.log((n + 1) / delta) / (2 * n))
@@ -63,18 +99,22 @@ def refined_pinsker_bound(p_hat, delta, n):
 
 # Calculate bounds
 hoeffding_bounds = hoeffding_bound(p_hat_values, delta, n)
+low_hoeffding_bounds = hoeffding_l_bound(p_hat_values, delta, n) # lower bound
 kl_inverse_bounds = kl_inverse_bound(p_hat_values, delta, n)
+low_kl_inverse_bounds =  kl_l_inverse_bound(p_hat_values, delta, n)
 pinsker_bounds = pinsker_bound(p_hat_values, delta, n)
 refined_pinsker_bounds = refined_pinsker_bound(p_hat_values, delta, n)
 
 # Clip all bounds at 1
 hoeffding_bounds = np.clip(hoeffding_bounds, None, 1)
+low_hoeffding_bounds = np.clip(low_hoeffding_bounds, 0, 1)
 kl_inverse_bounds = np.clip(kl_inverse_bounds, None, 1)
+low_kl_inverse_bounds = np.clip(low_kl_inverse_bounds, 0, 1)
 pinsker_bounds = np.clip(pinsker_bounds, None, 1)
 refined_pinsker_bounds = np.clip(refined_pinsker_bounds, None, 1)
 
 # Create subplots
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
 # Full range plot
 ax1.plot(p_hat_values, hoeffding_bounds, label="Hoeffding's Inequality")
@@ -86,7 +126,7 @@ ax1.set_ylabel('$p$')
 ax1.set_title('Bounds on $p$ as a function of $\hat{p}_n$')
 ax1.legend()
 ax1.grid(True)
-ax1.set_ylim(0, 1.1)  # Limit y-axis to [0, 1] as suggested
+ax1.set_ylim(0, 1.1)  # Limit y-axis to [0, 1]
 
 # Zoomed-in plot
 ax2.plot(p_hat_values, hoeffding_bounds, label="Hoeffding's Inequality")
@@ -99,7 +139,26 @@ ax2.set_title('Zoomed-in: Bounds on $p$ as a function of $\hat{p}_n$ (0 to 0.1)'
 ax2.legend()
 ax2.grid(True)
 ax2.set_xlim(0, 0.1)  # Limit x-axis to [0, 0.1]
-ax2.set_ylim(0, 0.2)  # Limit y-axis to [0, 1] as suggested
+ax2.set_ylim(0, 0.2)  # Limit y-axis to [0, 1]
 
+
+fig2, ax = plt.subplots()
+# Plotting the data
+ax.plot(p_hat_values, low_hoeffding_bounds, label="Hoeffding's lower bound", linestyle='-', color='blue')
+ax.plot(p_hat_values, low_kl_inverse_bounds, label="KL Inequality (lower Bound)", linestyle='-', color='orange')
+
+# Set labels and title
+ax.set_xlabel(r'$\hat{p}_n$')
+ax.set_ylabel('$p$')
+ax.set_title('Bounds on $p$ as a function of $\hat{p}_n$ (Lower Bounds)')
+
+# Add a legend
+ax.legend()
+
+# Add gridlines
+ax.grid(True)
+
+# Tight layout to prevent overlapping
+plt.tight_layout()
 plt.tight_layout()
 plt.show()
